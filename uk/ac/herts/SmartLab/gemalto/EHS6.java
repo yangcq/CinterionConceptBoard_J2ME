@@ -8,6 +8,9 @@ import com.cinterion.io.ATCommandListener;
 
 public class EHS6 {
 
+	private static final String URC_START = "^SYSSTART";
+	private static final String URC_READY = "+PBREADY";
+
 	public static final String REGISTRATION_STATUS_NOT_REGISTERED = "0";
 	public static final String REGISTRATION_STATUS_HOME_NETWORK = "1";
 	public static final String REGISTRATION_STATUS_SEARCHING = "2";
@@ -18,13 +21,18 @@ public class EHS6 {
 	private static final String RESPONSE_OK = "OK";
 
 	private ATCommand command;
-
 	private Vector listeners;
+	private boolean isReady = false;
 
 	public EHS6() throws Exception {
 		listeners = new Vector();
 		command = new ATCommand(false);
-		init();
+
+		command.addListener(listener);
+	}
+
+	public boolean isReady() {
+		return this.isReady;
 	}
 
 	public void AddEventListener(EHS6ResponseListener listener) {
@@ -35,8 +43,14 @@ public class EHS6 {
 		listeners.removeElement(listener);
 	}
 
-	private void init() throws IllegalStateException, IllegalArgumentException,
-			ATCommandFailedException {
+	/*
+	 * this will be called automatically when system just boot up, call this
+	 * manually when program restart.
+	 */
+	public void init() throws Exception {
+		
+		if (this.isReady)
+			return;
 
 		command.send("ATE0\r");
 		command.send("AT+CNMI=1,1,2,2\r");
@@ -64,7 +78,7 @@ public class EHS6 {
 		command.send("AT+CTZR=1\r");
 		command.send("AT+CTZU=1\r");
 
-		command.addListener(listener);
+		isReady = true;
 	}
 
 	private ATCommandListener listener = new ATCommandListener() {
@@ -75,6 +89,8 @@ public class EHS6 {
 				handleNewSMS(arg0);
 			else if (arg0.indexOf("+CIEV:") >= 0)
 				handleCIEV(arg0);
+			else if (arg0.indexOf(URC_READY) >= 0)
+				handleReady();
 			else
 				System.out.println(arg0);
 		}
@@ -100,6 +116,19 @@ public class EHS6 {
 		}
 
 	};
+
+	private void handleReady() {
+		try {
+			init();
+			for (int i = 0; i < listeners.size(); i++)
+				((EHS6ResponseListener) listeners.elementAt(i)).onEHS6Ready();
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
 
 	private void handleCIEV(String arg0) {
 		String[] response = Split(arg0, ", \r\n");

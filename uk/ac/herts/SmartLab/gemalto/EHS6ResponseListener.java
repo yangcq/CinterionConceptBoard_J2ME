@@ -9,4 +9,6 @@ public interface EHS6ResponseListener {
 	 * @param value : 0,1,2,3,4,5
 	 */
 	public void onSignalStrengthIndication(int value);
+	
+	public void onEHS6Ready();
 }
